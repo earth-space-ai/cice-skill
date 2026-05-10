@@ -32,7 +32,11 @@ tags:
 
 **What CICE does:** Simulates the growth, melting, advection, and deformation of polar sea ice on a curvilinear grid. Couples to atmosphere and ocean components; provides ice fraction, thickness, surface temperature, ocean–ice fluxes, and atmosphere–ice fluxes. Used in: CESM (via CESM_CICE wrapper), E3SM, NorESM, UFS, GFDL, and many regional configurations.
 
+Used in CESM, E3SM, NorESM, UFS, and other coupled systems. (Note: GFDL uses its own SIS2 sea-ice model, not CICE.)
+
 **Architecture:** CICE is a **two-repo** system. This repo (`CICE`) holds the dynamical/transport core and the case-control machinery. Column-physics (thermodynamics, melt ponds, snow, brine, biogeochemistry) lives in **Icepack**, included as a Git submodule under `icepack/`.
+
+**Coupling note:** standalone CICE includes a driver that reads atm/ocn forcing directly from NetCDF (CORE2, JRA55-do, etc.). CICE does **not** require an external coupler to run. When embedded in CESM/E3SM/etc., the host coupler (CMEPS, MCT) drives it via the standard flux interface.
 
 **Who this skill is for:** Researchers running CICE standalone (often via a host coupler), CICE developers, and people who need to understand how CICE is configured inside CESM/E3SM/NorESM.
 
@@ -114,6 +118,16 @@ git submodule update --init --recursive
 | reference/testing.md | cice.setup --test, regression |
 | reference/debugging.md | Common errors |
 
+## Critical agent gotchas (Gemini-reviewed)
+
+- **This skill targets CICE6.** Older CICE5 had a different layout and was usually built through the host model (e.g., CESM); the `cice.setup` workflow described here is CICE6+.
+- **`cice.setup` requires `-p` (PE count) and `-m` (machine).** Without them the case scaffolding will not produce a runnable script.
+- **Block decomposition is configurable.** `block_size_x` and `block_size_y` in the namelist set the per-block size; bad values cause poor scaling or load imbalance.
+- **`ncat` (number of ice thickness categories)** is the defining ITD parameter. Changing it can require namelist changes elsewhere; check defaults per CICE tag.
+- **Grid type matters.** CICE6 supports both **B-grid** (legacy) and **C-grid** (newer default in some configurations). The `kdyn` and grid input files must agree.
+- **Restart pointers.** The model uses an `ice.restart_file` pointer; mismanaging the pointer (binary vs NetCDF format mismatch, missing file) is the single most common cause of automated chained-job failures.
+- **Rheology selection in practice.** EVP and mEVP are the workhorses; EAP is research-grade; VP is rarely used at production scale due to scalability.
+
 ## Status
 
-Scaffold (v0.1.0-scaffold). Layout, submodule structure, and case-setup model verified against the cloned tree. Operational depth being filled in.
+Scaffold (v0.1.0-scaffold). Layout, submodule structure, and case-setup model verified against the cloned tree, with Gemini critique pass on 2026-05-09 to remove the GFDL claim and add coupling and decomposition notes. Operational depth being filled in.
